@@ -1,5 +1,0 @@
-Kotlin Toolchain version 0.11.1 (801e9d4, 2026-06-05)
-Configured compiler: Kotlin 2.4.10
-Configured JDK: JDK 21
-Docker client 29.7.2, server 29.7.2
-Darwin 25.5.0 (Apple Silicon host)

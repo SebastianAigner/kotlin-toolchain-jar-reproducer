@@ -1,8 +1,8 @@
 # Kotlin Toolchain executable-JAR reproducibility reproducer
 
-This repository provides `reproduce.sh`, a one-command regression test for a
-Kotlin Toolchain packaging issue. The issue still reproduces with the latest
-official release tested, Kotlin Toolchain 0.12.0 (2026-08-25):
+This repository provides `reproduce.sh`, a one-command reproducer for a Kotlin
+Toolchain 0.12.0 packaging issue. Version 0.12.0 was the latest official release
+when tested on 2026-08-27:
 
 - Two unchanged `package` invocations produce executable JARs with different
   SHA-256 hashes.
@@ -24,8 +24,8 @@ that contains the JAR.
 
 ## Actual behavior
 
-Kotlin Toolchain 0.12.0 still writes the packaging invocation time into the ZIP
-metadata. The second executable JAR therefore has a different SHA-256 hash even
+Kotlin Toolchain 0.12.0 writes the packaging invocation time into the ZIP
+metadata. A second executable JAR therefore has a different SHA-256 hash even
 though every extracted file is byte-identical. Docker sees different `COPY`
 input, creates a different filesystem-layer diff ID, and invalidates that layer
 and every downstream layer.
@@ -83,16 +83,10 @@ ends with `PASS` and writes concise evidence to `evidence/latest/`.
 
 ## Captured evidence
 
-Checked-in evidence is versioned so the original finding remains auditable:
-
-- `evidence/0.11.1/` preserves the original verified evidence unchanged.
-- `evidence/0.12.0/` records the current verification, including both official
-  wrapper hashes.
-
-Each directory contains JAR hashes, a timestamp summary, the extracted payload
-comparison, Docker image/layer IDs, and environment details. Raw build logs from
-a new run are placed in the ignored `evidence/latest/` directory. See
-`evidence/README.md` for the evidence policy and direct comparison.
+The checked-in `evidence/0.12.0/` directory contains JAR hashes, a timestamp
+summary, the extracted-payload comparison, Docker image/layer IDs, environment
+details, and official wrapper hashes. Raw build logs from a new run are placed
+in the ignored `evidence/latest/` directory.
 
 ## Cleanup
 

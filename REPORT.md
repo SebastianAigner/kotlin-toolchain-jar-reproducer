@@ -1,25 +1,40 @@
-# Kotlin Toolchain executable JARs remain non-reproducible across unchanged package runs
+# Kotlin Toolchain 0.12.0 executable JARs are not reproducible
 
 ## Summary
 
-Running `./kotlin package` twice without changing any project input produces
-executable JARs with different SHA-256 hashes. The original finding was made
-with Kotlin Toolchain 0.11.1 and was reverified with the latest official release,
-0.12.0, on 2026-08-27.
+With Kotlin Toolchain 0.12.0, running `./kotlin package` twice without changing
+any project input produces executable JARs with different SHA-256 hashes.
 
-In each comparison, the two archives have the same size and entry count, and
-their extracted payloads are byte-identical. Their ZIP metadata differs because
-every entry receives the wall-clock time of the package invocation. This
-defeats content-addressed build caches. In particular, a Docker `COPY` of the
-executable JAR is invalidated on every package invocation, which also
-invalidates an expensive downstream GraalVM Native Image layer.
+The two archives have the same size and entry count, and their extracted
+payloads are byte-identical. All 131 ZIP entry timestamps change to the
+wall-clock time of the packaging invocation. This defeats content-addressed
+build caches: a Docker `COPY` of the JAR is invalidated, along with an
+expensive downstream GraalVM Native Image layer.
 
-## Current verification: Kotlin Toolchain 0.12.0
+Version 0.12.0 was the latest official Kotlin Toolchain release when verified on
+2026-08-27.
 
-The repository's automated test packages the minimal application twice, waits
-long enough to cross ZIP's two-second timestamp resolution, compares the JARs
-and their extracted payloads, and builds a `FROM scratch` Docker image from each
-JAR. The 0.12.0 run produced:
+## Environment
+
+- Kotlin Toolchain: `0.12.0 (2039c53, 2026-08-25)`
+- Official Unix wrapper SHA-256:
+  `b9a4ebe4e5f846057609203f82a19730414d69ca692178d094e2a6f99f5526c7`
+- Official Windows wrapper SHA-256:
+  `a54dc5cdd48dc0753dabaa2eeabefa45860f1fc6b5024da6b0f07a9990ece837`
+- Project product: `jvm/app`
+- Kotlin: `2.4.10`
+- JDK: `25`
+- Docker client/server: `29.7.2`
+- Host kernel: Darwin 25.5.0 (Apple Silicon host, x86_64 process)
+- Executable JAR layout: Spring Boot launcher with application classes under
+  `BOOT-INF/classes` and dependencies under `BOOT-INF/lib`
+
+The wrappers were obtained with JetBrains' official `./kotlin update` command
+and verified byte-for-byte against the published 0.12.0 wrapper artifacts.
+
+## Verified result
+
+The automated run produced:
 
 ```text
 1ce1500e00e8cf6820d56916ce70a9abc70e2e1ea2840c2e820c074978c99086  first.jar
@@ -32,147 +47,35 @@ first Docker layer:  sha256:bfec786ec6d6a353dacc33b8e2ffa81be1eca542c922a2d5f582
 second Docker layer: sha256:47f94c364abdfaf64fffac255006d25143419a3f2cb2f6a06ae48739b5d1b7bf
 ```
 
-This is the same failure mode as 0.11.1: only archive metadata changes, but the
-JAR digest and Docker layer identity change. The issue is therefore not fixed
-in 0.12.0.
+The first differing bytes are the DOS timestamp fields in successive local ZIP
+headers. Corresponding extracted files are identical.
 
-### Current environment
+## Reproduction
 
-- Kotlin Toolchain: `0.12.0 (2039c53, 2026-08-25)`
-- Official Unix wrapper SHA-256:
-  `b9a4ebe4e5f846057609203f82a19730414d69ca692178d094e2a6f99f5526c7`
-- Official Windows wrapper SHA-256:
-  `a54dc5cdd48dc0753dabaa2eeabefa45860f1fc6b5024da6b0f07a9990ece837`
-- Project product: `jvm/app`
-- Kotlin: `2.4.10`
-- JDK: `25`
-- Docker client/server: `29.7.2`
-- Host kernel: Darwin 25.5.0 (Apple Silicon host, x86_64 process)
-
-The wrappers were obtained with JetBrains' official `./kotlin update` command
-from the JetBrains Kotlin Toolchain Maven repository and verified byte-for-byte
-against the published 0.12.0 wrapper artifacts.
-
-## Historical 0.11.1 finding
-
-The following environment and measurements document the original finding. They
-are retained as historical evidence and have not been rewritten to look like a
-0.12.0 run.
-
-### Original environment
-
-- Kotlin Toolchain: `0.11.1 (801e9d4, 2026-06-05)`
-- Project product: `jvm/app`
-- Kotlin: `2.4.10`
-- JVM target: `21`
-- Java used for verification: Amazon Corretto `21.0.12`
-- Host: Darwin 25.5.0, `x86_64`
-- Executable JAR layout: Spring Boot launcher with application classes under
-  `BOOT-INF/classes` and dependencies under `BOOT-INF/lib`
-
-The relevant project configuration is:
-
-```yaml
-product: jvm/app
-
-settings:
-  kotlin:
-    version: 2.4.10
-  jvm:
-    jdk:
-      version: 21
-    mainClass: io.sebi.tenchou.ApplicationKt
-```
-
-## Standalone reproducer
-
-A separate minimal repository, `kotlin-toolchain-jar-reproducer`, contains a
-single-function `jvm/app`, pinned Kotlin Toolchain wrappers, and a one-command
-automated test:
+From this repository, run:
 
 ```bash
 ./reproduce.sh
 ```
 
-The script packages twice without changing an input, compares the archives and
-their extracted trees, and builds a `FROM scratch` Docker image whose only
-filesystem layer is the executable JAR. It exits nonzero unless it observes the
-specific timestamp-only reproducibility failure and the resulting Docker layer
-invalidation.
+The script:
 
-The original verified 0.11.1 minimal run produced:
+1. cleans and packages the minimal `jvm/app`;
+2. builds a `FROM scratch` Docker image whose only layer is that JAR;
+3. waits long enough to cross ZIP's two-second timestamp resolution;
+4. packages again without changing any input;
+5. compares JAR hashes, extracted payloads, and ZIP timestamps; and
+6. verifies that Docker assigns a different root filesystem layer.
 
-```text
-2873ed2a98b4550801e72a7778cda85ab03d980163464d712d93b1ca1dee5b7f  first.jar
-468765ffbd725bacb13201e963e615e8bb4114e210483df40ba06fdc731b15fa  second.jar
+It exits nonzero unless it observes the timestamp-only JAR difference and
+resulting Docker cache invalidation.
 
-ZIP entries with different timestamps: 130/130
-Extracted payloads: byte-identical
-
-first Docker layer:  sha256:c6f64934ab3a513ea8086ed0d6438347c5da1639b474110c7a848548936f8af9
-second Docker layer: sha256:003bc47db80e1db9682196e25aee85d3efef9d7f790c6125e7378b26e0502f68
-```
-
-The complete script, README, and concise captured evidence are committed in
-that repository as commit `d73eb50`.
-
-## Minimal reproduction procedure
-
-Starting from an unchanged, already compilable Kotlin Toolchain `jvm/app`
-project:
-
-```bash
-repro_dir="$(mktemp -d)"
-executable_jar="build/tasks/_tenchou_executableJarJvm/tenchou-jvm-executable.jar"
-
-./kotlin package
-cp "$executable_jar" "$repro_dir/first.jar"
-
-sleep 4
-
-./kotlin package
-cp "$executable_jar" "$repro_dir/second.jar"
-
-shasum -a 256 "$repro_dir/first.jar" "$repro_dir/second.jar"
-
-mkdir "$repro_dir/first" "$repro_dir/second"
-unzip -qq "$repro_dir/first.jar" -d "$repro_dir/first"
-unzip -qq "$repro_dir/second.jar" -d "$repro_dir/second"
-diff -qr "$repro_dir/first" "$repro_dir/second"
-
-diff -u \
-  <(zipinfo -v "$repro_dir/first.jar") \
-  <(zipinfo -v "$repro_dir/second.jar")
-```
-
-The `sleep` only ensures that the second run crosses the two-second resolution
-of a DOS ZIP timestamp. No project file is modified between the two package
-invocations.
-
-## Original application observation
-
-In the motivating application investigation with 0.11.1, the two directly
-produced archives differed:
-
-```text
-a4c3ae6a5ed1bbe90e7e4766fb2cada303ec45ff52a9bc0f2642f6eff1ece1b8  first.jar
-182dbcbda73eaec6315b79326a4617017388786e7833ffae291ddfa03de32ec9  second.jar
-```
-
-Both archives were exactly 22,227,580 bytes and contained 225 entries.
-`diff -qr` over the two extracted directory trees produced no output: every
-extracted file was byte-identical.
-
-`zipinfo -v` showed the metadata difference repeated for every entry:
+The timestamp evidence includes entries such as:
 
 ```diff
-- file last modified on (DOS date/time): 2026 Aug 27 16:15:36
-+ file last modified on (DOS date/time): 2026 Aug 27 16:15:40
+- 20260827.171234  META-INF/MANIFEST.MF
++ 20260827.171240  META-INF/MANIFEST.MF
 ```
-
-The first differing bytes reported by `cmp -l` were the DOS timestamp bytes in
-successive local file headers. CRCs, compressed sizes, uncompressed sizes, and
-extracted contents were unchanged.
 
 ## Expected result
 
@@ -183,81 +86,86 @@ identical executable JARs:
 sha256(first.jar) == sha256(second.jar)
 ```
 
-Ideally, the packaging task could also be skipped as up to date when none of its
-inputs changed. However, even when the task executes, its output should be
-reproducible.
+Ideally, packaging could also be skipped when none of its inputs changed.
+However, even when the task executes, its output should be reproducible.
 
 ## Docker and Native Image impact
 
-The production pipeline uses the executable JAR as the input of a native-image
-builder stage:
+The motivating production pipeline uses the executable JAR as the input of a
+native-image builder stage:
 
 ```dockerfile
 FROM ghcr.io/graalvm/native-image-community:25i2 AS native-builder
 
-COPY build/tasks/_tenchou_executableJarJvm/tenchou-jvm-executable.jar /build/tenchou.jar
-
-RUN jar -xf /build/tenchou.jar
+COPY application-executable.jar /build/application.jar
+RUN jar -xf /build/application.jar
 RUN native-image ...
 ```
 
-Docker keys the `COPY` layer by file content. Because the executable JAR hash
-changes on every `package` invocation, Docker cannot reuse either the `COPY`
-layer or the dependent `native-image` layer—even when all class files,
-resources, dependency JARs, and configuration are identical.
+Docker keys the `COPY` layer by file content. Because the JAR digest changes
+on every `package` invocation, Docker cannot reuse that layer or the dependent
+`native-image` layer, even though all classes, resources, dependency JARs, and
+configuration are identical.
 
-In the observed application, JVM packaging takes only a few seconds while the
-downstream native compilation takes roughly 48 seconds and peaks around 2.76
-GiB of memory. The timestamp-only difference therefore turns a no-op package
-run into a complete native rebuild. It would similarly cause misses in remote
-build caches, artifact stores, provenance checks, and any deployment system
-that uses the JAR digest as an identity.
+In the observed service, native compilation took roughly 57 seconds and peaked
+around 3 GiB of memory, while the correctly cached Docker build took about two
+seconds. In the complete deployment pipeline, that was roughly 70 seconds
+instead of 15 seconds, or about five times slower.
 
-## Root-cause hypothesis
+The same timestamp-only difference can also cause misses in remote build caches,
+artifact stores, provenance checks, registries, and deployment systems that use
+the JAR digest as an identity.
 
-The executable-JAR assembly appears to assign the current packaging time to
-every output entry. The evidence does not indicate a changed compiler or
-resource payload; after extraction, the output trees are identical.
+## Root cause
 
-A reproducible archive would normally use a stable entry order and normalized
-timestamps, while preserving any ZIP storage requirements of nested executable
-JAR layouts.
+Kotlin Toolchain's current ZIP configuration declares:
+
+- `reproducibleFileOrder = true`
+- `preserveFileTimestamps = false`
+
+However, when timestamp preservation is disabled, the implementation creates a
+new `ZipEntry` without assigning it a normalized timestamp. Java's
+`ZipOutputStream.putNextEntry` assigns the current time when an entry has no
+modification time. Thus, `preserveFileTimestamps=false` currently means “do not
+copy the source timestamp,” rather than “write a stable timestamp.”
+
+The executable-JAR assembler uses this ZIP configuration directly. Stable
+ordering is therefore enabled, but timestamps remain nondeterministic.
+
+## Public issue search
+
+A search of the public Kotlin Toolchain/Amper YouTrack history, GitHub issues,
+pull requests, commits, and source history found no exact ticket tracking this
+timestamp/hash reproducibility defect.
+
+Related tickets cover creation of executable JARs, Spring Boot loader behavior,
+or Docker/OCI output generally, but not changing ZIP timestamps or invalidated
+content-addressed caches. The strongest classification is an untracked
+implementation bug in the existing reproducibility logic.
 
 ## Practical workarounds
 
-Until Kotlin Toolchain produces reproducible executable JARs, we have used two
-application-level mitigations:
+Until Kotlin Toolchain produces reproducible executable JARs:
 
 1. **Skip packaging when backend inputs are unchanged.** Compute a content
-   fingerprint over the Kotlin sources, resources, module configuration, and
-   pinned toolchain wrapper. If it matches the fingerprint recorded for the
-   existing executable JAR, reuse that exact JAR instead of invoking
-   `./kotlin package`. This preserves its digest and therefore the downstream
-   Docker and native-image cache. The input list must be maintained carefully,
-   and clean builds or toolchain changes must force a new package run.
-2. **Keep frequently changed static files outside the executable.** For the
-   motivating service, the Vite frontend is copied into a separate runtime
-   image layer and served from a filesystem directory selected by an
-   environment variable. A frontend-only change then rebuilds only that small
-   layer; it does not require executable-JAR packaging or GraalVM compilation.
+   fingerprint over sources, resources, module configuration, and the pinned
+   wrapper. If it matches the existing executable JAR, reuse that exact JAR.
+2. **Keep frequently changed static files outside the executable.** Copy a web
+   frontend into a separate runtime image layer and serve it from the
+   filesystem. Frontend-only changes then avoid JAR packaging and native
+   compilation.
+3. **Normalize the archive after packaging.** Repack with a fixed timestamp and
+   deterministic ordering. Nested executable-JAR dependencies must remain
+   stored rather than compressed.
 
-In a timed production verification of those two mitigations, an insignificant
-frontend change took 36 seconds from starting the source edit to independently
-observing the exact new artifact at the production URL. The deployment script
-accounted for 15 seconds of that interval, and Docker reported the executable
-JAR copy, extraction, and GraalVM native-image steps as cached.
+A timed production verification of the first two mitigations took 36 seconds
+from beginning a frontend edit to observing it in production. The deployment
+script itself took 15 seconds, with the JAR and native-image layers cached.
 
-Archive normalization is another possible workaround: rebuild the ZIP with a
-fixed timestamp and deterministic ordering. Nested executable-JAR dependencies
-must remain stored rather than compressed, and launchability should be tested
-after rewriting. The experiment below demonstrates that this works for the
-observed layout, but an upstream Kotlin Toolchain fix is preferable because it
-can preserve all format invariants centrally.
+## Normalization experiment
 
-## Independent normalization experiment
-
-As a diagnostic—not a proposed user-facing workaround—the two extracted trees
-were repacked using the JDK `jar` tool with a fixed timestamp and stored entries:
+The two Kotlin Toolchain 0.12.0 outputs were independently extracted and
+repacked using the JDK `jar` tool:
 
 ```bash
 jar --create \
@@ -268,26 +176,23 @@ jar --create \
   -C extracted .
 ```
 
-Both independently normalized outputs had the same SHA-256:
+Both normalized outputs had the same SHA-256:
 
 ```text
-3f2e0c24a8976b119a64d3223ab3ef6ef54a6baa30ec38dbef833eadda49edd8
+fb1a2e0b9585a699fbed9afce73d5ffbedd6b320638c78607f5562d51dbf1b2d
 ```
 
-The normalized executable JAR also launched successfully and passed the
-application health check. This confirms that normalizing archive metadata is
-sufficient to restore reproducibility for the observed inputs. The use of
-`--no-compress` in this diagnostic preserves the storage requirements of nested
-Spring Boot dependency JARs; it is not intended as the preferred Kotlin
-Toolchain implementation.
+The normalized executable JAR launched successfully on JDK 25. This confirms
+that normalizing archive metadata is sufficient for the observed layout.
+`--no-compress` preserves the storage requirement of nested Spring Boot
+dependency JARs; an upstream fix should preserve this invariant centrally.
 
 ## Suggested acceptance test
 
 A Kotlin Toolchain integration test could package the same small `jvm/app`
-fixture twice in distinct clean output directories, then assert:
+fixture twice, then assert:
 
 1. the executable JAR SHA-256 values are equal;
-2. the archive entry order is equal;
-3. every corresponding entry has equal content and metadata; and
-4. a content-addressed consumer such as a Docker `COPY` layer remains cached on
-   the second build.
+2. archive entry order and metadata are equal;
+3. corresponding entry contents are equal; and
+4. a content-addressed consumer such as a Docker `COPY` layer remains cached.
