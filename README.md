@@ -1,12 +1,15 @@
 # Kotlin Toolchain executable-JAR reproducibility reproducer
 
 This repository provides `reproduce.sh`, a one-command minimal reproducer for a
-Kotlin Toolchain packaging issue: two unchanged `package` invocations produce
-executable JARs with different SHA-256 hashes because their ZIP timestamps
-differ. Although the extracted files are byte-for-byte identical, the changed
-archive invalidates Docker layers and downstream GraalVM Native Image builds
-(in the motivating Tenchou project, roughly 70 seconds instead of 15 seconds
-for the deployment pipeline, or about 5× slower).
+Kotlin Toolchain packaging issue:
+
+- Two unchanged `package` invocations produce executable JARs with different
+  SHA-256 hashes.
+- Their extracted files are byte-for-byte identical, but their ZIP timestamps
+  differ.
+- The changed archive invalidates Docker layers and downstream GraalVM Native
+  Image builds (in the motivating Tenchou project, roughly 70 seconds instead
+  of 15 seconds for the deployment pipeline, or about 5× slower).
 
 See [REPORT.md](REPORT.md) for the full investigation, production impact,
 captured measurements, root-cause hypothesis, and practical workarounds.
@@ -28,20 +31,21 @@ every downstream layer.
 
 ## Impact
 
-- Docker cannot reuse the `COPY` layer containing the executable JAR or any
+- **Docker** cannot reuse the `COPY` layer containing the executable JAR or any
   downstream layer, despite the application payload being unchanged.
-- GraalVM Native Image pipelines rebuild the native executable whenever that
+- **GraalVM Native Image** pipelines rebuild the native executable whenever that
   invalidated layer feeds the native compiler. In Tenchou, native compilation
-  takes roughly 57 seconds, while the correctly cached Docker build takes about
-  2 seconds.
-- CI build caches, artifact stores, provenance records, and deployment systems
-  that identify artifacts by digest see a new artifact on every packaging run.
-- Registries and deployment hosts may transfer and unpack layers that contain
-  no meaningful application change.
+  takes roughly 57 seconds, while the correctly cached **Docker** build takes
+  about 2 seconds.
+- **CI build caches**, artifact stores, provenance records, and deployment
+  systems that identify artifacts by digest see a new artifact on every
+  packaging run.
+- **Container registries** and deployment hosts may transfer and unpack layers
+  that contain no meaningful application change.
 
-This reproducer intentionally does **not** run GraalVM. Its `FROM scratch`
-image contains only the executable JAR, isolating and proving the Docker cache
-invalidation quickly and cheaply.
+This reproducer intentionally does **not** run **GraalVM Native Image**. Its
+`FROM scratch` image contains only the executable JAR, isolating and proving
+the **Docker** cache invalidation quickly and cheaply.
 
 ## Workarounds
 
