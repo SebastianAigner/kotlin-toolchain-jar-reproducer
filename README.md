@@ -5,6 +5,9 @@ two unchanged `package` invocations produce executable JARs with different
 SHA-256 hashes. The extracted files are byte-for-byte identical; ZIP entry
 timestamps differ.
 
+See [REPORT.md](REPORT.md) for the full investigation, production impact,
+captured measurements, root-cause hypothesis, and practical workarounds.
+
 ## Environment
 
 - Kotlin Toolchain 0.11.1 (`801e9d4`, 2026-06-05), pinned by the checked-in
@@ -39,6 +42,15 @@ can invalidate the layer that feeds an expensive GraalVM compilation, forcing
 the native image and all later layers to rebuild. This reproducer intentionally
 does **not** run GraalVM. Its `FROM scratch` image contains only the executable
 JAR, isolating and proving the cache invalidation cheaply.
+
+## Workarounds
+
+The practical short-term options are to skip `package` when a complete content
+fingerprint of backend inputs is unchanged, keep frequently changed static
+frontend assets outside the executable, or deterministically normalize the JAR
+after packaging while preserving the executable layout's stored nested JARs.
+The full tradeoffs and a verified normalization experiment are documented in
+[REPORT.md](REPORT.md#practical-workarounds).
 
 ## One-command reproduction
 
