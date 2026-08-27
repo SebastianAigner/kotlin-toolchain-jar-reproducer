@@ -1,0 +1,7 @@
+Kotlin Toolchain version 0.12.0 (2039c53, 2026-08-25)
+Unix wrapper SHA-256: b9a4ebe4e5f846057609203f82a19730414d69ca692178d094e2a6f99f5526c7
+Windows wrapper SHA-256: a54dc5cdd48dc0753dabaa2eeabefa45860f1fc6b5024da6b0f07a9990ece837
+Configured compiler: Kotlin 2.4.10
+Configured JDK: JDK 25
+Docker client 29.7.2, server 29.7.2
+Darwin 25.5.0 (Apple Silicon host, x86_64 process)

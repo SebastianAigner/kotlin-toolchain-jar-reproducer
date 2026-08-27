@@ -1,18 +1,65 @@
-# Kotlin Toolchain executable JARs are not reproducible across unchanged package runs
+# Kotlin Toolchain executable JARs remain non-reproducible across unchanged package runs
 
 ## Summary
 
-With Kotlin Toolchain 0.11.1, running `./kotlin package` twice without changing
-any project input produces executable JARs with different SHA-256 hashes.
+Running `./kotlin package` twice without changing any project input produces
+executable JARs with different SHA-256 hashes. The original finding was made
+with Kotlin Toolchain 0.11.1 and was reverified with the latest official release,
+0.12.0, on 2026-08-27.
 
-The two archives have the same size, the same 225 entries, and byte-identical
-extracted payloads. Their ZIP metadata differs because every entry receives the
-wall-clock time of the package invocation. This defeats content-addressed build
-caches. In particular, a Docker `COPY` of the executable JAR is invalidated on
-every package invocation, which also invalidates an expensive downstream
-GraalVM Native Image layer.
+In each comparison, the two archives have the same size and entry count, and
+their extracted payloads are byte-identical. Their ZIP metadata differs because
+every entry receives the wall-clock time of the package invocation. This
+defeats content-addressed build caches. In particular, a Docker `COPY` of the
+executable JAR is invalidated on every package invocation, which also
+invalidates an expensive downstream GraalVM Native Image layer.
 
-## Environment
+## Current verification: Kotlin Toolchain 0.12.0
+
+The repository's automated test packages the minimal application twice, waits
+long enough to cross ZIP's two-second timestamp resolution, compares the JARs
+and their extracted payloads, and builds a `FROM scratch` Docker image from each
+JAR. The 0.12.0 run produced:
+
+```text
+1ce1500e00e8cf6820d56916ce70a9abc70e2e1ea2840c2e820c074978c99086  first.jar
+468c661dfcf90f53913c3bd6e6997c84ddea73886f60f35f2fdcffe55b0a129e  second.jar
+
+ZIP entries with different timestamps: 131/131
+Extracted payloads: byte-identical
+
+first Docker layer:  sha256:bfec786ec6d6a353dacc33b8e2ffa81be1eca542c922a2d5f582e8fa5d156174
+second Docker layer: sha256:47f94c364abdfaf64fffac255006d25143419a3f2cb2f6a06ae48739b5d1b7bf
+```
+
+This is the same failure mode as 0.11.1: only archive metadata changes, but the
+JAR digest and Docker layer identity change. The issue is therefore not fixed
+in 0.12.0.
+
+### Current environment
+
+- Kotlin Toolchain: `0.12.0 (2039c53, 2026-08-25)`
+- Official Unix wrapper SHA-256:
+  `b9a4ebe4e5f846057609203f82a19730414d69ca692178d094e2a6f99f5526c7`
+- Official Windows wrapper SHA-256:
+  `a54dc5cdd48dc0753dabaa2eeabefa45860f1fc6b5024da6b0f07a9990ece837`
+- Project product: `jvm/app`
+- Kotlin: `2.4.10`
+- JDK: `25`
+- Docker client/server: `29.7.2`
+- Host kernel: Darwin 25.5.0 (Apple Silicon host, x86_64 process)
+
+The wrappers were obtained with JetBrains' official `./kotlin update` command
+from the JetBrains Kotlin Toolchain Maven repository and verified byte-for-byte
+against the published 0.12.0 wrapper artifacts.
+
+## Historical 0.11.1 finding
+
+The following environment and measurements document the original finding. They
+are retained as historical evidence and have not been rewritten to look like a
+0.12.0 run.
+
+### Original environment
 
 - Kotlin Toolchain: `0.11.1 (801e9d4, 2026-06-05)`
 - Project product: `jvm/app`
@@ -53,7 +100,7 @@ filesystem layer is the executable JAR. It exits nonzero unless it observes the
 specific timestamp-only reproducibility failure and the resulting Docker layer
 invalidation.
 
-The verified minimal run produced:
+The original verified 0.11.1 minimal run produced:
 
 ```text
 2873ed2a98b4550801e72a7778cda85ab03d980163464d712d93b1ca1dee5b7f  first.jar
@@ -102,9 +149,10 @@ The `sleep` only ensures that the second run crosses the two-second resolution
 of a DOS ZIP timestamp. No project file is modified between the two package
 invocations.
 
-## Observed result
+## Original application observation
 
-The two directly produced archives differed:
+In the motivating application investigation with 0.11.1, the two directly
+produced archives differed:
 
 ```text
 a4c3ae6a5ed1bbe90e7e4766fb2cada303ec45ff52a9bc0f2642f6eff1ece1b8  first.jar

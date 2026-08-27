@@ -61,10 +61,12 @@ mkdir -p "$EVIDENCE_DIR"
 
 {
     ./kotlin --version
+    printf 'Unix wrapper SHA-256: %s\n' "$(sha256 "$ROOT_DIR/kotlin")"
+    printf 'Windows wrapper SHA-256: %s\n' "$(sha256 "$ROOT_DIR/kotlin.bat")"
     printf 'Configured compiler: '
     ./kotlin show settings | sed -n 's/^    version: \([^ ]*\)  # module.yaml$/Kotlin \1/p'
     printf 'Configured JDK: JDK '
-    ./kotlin show settings | sed -n 's/^      version: \([0-9][0-9]*\)  # default$/\1/p' | head -n 1
+    ./kotlin show settings | sed -n 's/^      version: \([0-9][0-9]*\)  # .*$/\1/p' | head -n 1
     docker version --format 'Docker client {{.Client.Version}}, server {{.Server.Version}}'
     uname -a
 } > "$EVIDENCE_DIR/environment.txt"
@@ -150,7 +152,8 @@ second_layers="$(sed 's/^[^ ]* //' "$EVIDENCE_DIR/docker-second.txt")"
     printf 'PASS: the JAR-only rootfs layer changed, proving the COPY layer was invalidated.\n'
 } > "$EVIDENCE_DIR/docker-cache.txt"
 
-printf '\nPASS: Kotlin Toolchain executable-JAR reproducibility issue reproduced.\n'
+toolchain_version="$(sed -n 's/^kotlin_cli_version=//p' "$ROOT_DIR/kotlin" | head -n 1)"
+printf '\nPASS: Kotlin Toolchain %s executable-JAR reproducibility issue reproduced.\n' "$toolchain_version"
 printf '  JAR hashes differ:                    %s != %s\n' "$first_hash" "$second_hash"
 printf '  Extracted payloads:                   byte-identical\n'
 printf '  ZIP entries with changed timestamps: %s/%s\n' "$timestamp_differences" "$entry_count"

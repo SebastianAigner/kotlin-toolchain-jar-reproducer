@@ -1,7 +1,8 @@
 # Kotlin Toolchain executable-JAR reproducibility reproducer
 
-This repository provides `reproduce.sh`, a one-command minimal reproducer for a
-Kotlin Toolchain packaging issue:
+This repository provides `reproduce.sh`, a one-command regression test for a
+Kotlin Toolchain packaging issue. The issue still reproduces with the latest
+official release tested, Kotlin Toolchain 0.12.0 (2026-08-25):
 
 - Two unchanged `package` invocations produce executable JARs with different
   SHA-256 hashes.
@@ -23,11 +24,11 @@ that contains the JAR.
 
 ## Actual behavior
 
-Kotlin Toolchain writes the packaging invocation time into the ZIP metadata.
-The second executable JAR therefore has a different SHA-256 hash even though
-every extracted file is byte-identical. Docker sees different `COPY` input,
-creates a different filesystem-layer diff ID, and invalidates that layer and
-every downstream layer.
+Kotlin Toolchain 0.12.0 still writes the packaging invocation time into the ZIP
+metadata. The second executable JAR therefore has a different SHA-256 hash even
+though every extracted file is byte-identical. Docker sees different `COPY`
+input, creates a different filesystem-layer diff ID, and invalidates that layer
+and every downstream layer.
 
 ## Impact
 
@@ -76,16 +77,22 @@ The script:
 7. counts corresponding ZIP entries whose timestamps changed; and
 8. asserts that the Docker image ID and sole rootfs-layer diff ID changed.
 
-It exits nonzero with a clear `FAIL` message if the issue does not reproduce or
-if the observed difference is not timestamp-only. A successful reproduction
+It exits nonzero with a clear `FAIL` message if the issue no longer reproduces
+or if the observed difference is not timestamp-only. A successful reproduction
 ends with `PASS` and writes concise evidence to `evidence/latest/`.
 
 ## Captured evidence
 
-The checked-in `evidence/verified/` directory is from a verified run on the
-environment above. It contains hashes, a timestamp summary, the extracted
-payload comparison, Docker image/layer IDs, and environment details. Raw build
-logs from a new run are placed in the ignored `evidence/latest/` directory.
+Checked-in evidence is versioned so the original finding remains auditable:
+
+- `evidence/0.11.1/` preserves the original verified evidence unchanged.
+- `evidence/0.12.0/` records the current verification, including both official
+  wrapper hashes.
+
+Each directory contains JAR hashes, a timestamp summary, the extracted payload
+comparison, Docker image/layer IDs, and environment details. Raw build logs from
+a new run are placed in the ignored `evidence/latest/` directory. See
+`evidence/README.md` for the evidence policy and direct comparison.
 
 ## Cleanup
 
@@ -103,12 +110,21 @@ cache policy of the test machine.
 
 ## Environment
 
-- Kotlin Toolchain 0.11.1 (`801e9d4`, 2026-06-05), pinned by the checked-in
+- Kotlin Toolchain 0.12.0 (`2039c53`, 2026-08-25), pinned by the checked-in
   `kotlin` and `kotlin.bat` wrappers
 - Product: `jvm/app`
 - Kotlin: 2.4.10, pinned in `module.yaml`
-- JDK: 21
+- JDK: 25, pinned in `module.yaml`
 - Docker with BuildKit enabled
+
+0.12.0 was selected from JetBrains' official release feed as the newest stable
+release available on 2026-08-27. The wrappers were downloaded by the official
+`./kotlin update` command and match the published
+[Unix wrapper](https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/kotlin/kotlin-cli/0.12.0/kotlin-cli-0.12.0-wrapper)
+and [Windows wrapper](https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/kotlin/kotlin-cli/0.12.0/kotlin-cli-0.12.0-wrapper.bat)
+byte-for-byte. See the
+[0.12.0 release](https://github.com/JetBrains/kotlin-toolchain/releases/tag/v0.12.0)
+for JetBrains' release notes.
 
 The application is a single three-line `main` function. It has no third-party
 application dependencies. Kotlin Toolchain's `executable-jar` packaging uses a
