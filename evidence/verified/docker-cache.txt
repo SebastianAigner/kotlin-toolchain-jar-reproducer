@@ -1,0 +1,5 @@
+first image:  sha256:5e09be53a9087a818a9adbd3ee0b53ff6d1df7a9dea4c86282888d65497119cc
+first layers: ["sha256:c6f64934ab3a513ea8086ed0d6438347c5da1639b474110c7a848548936f8af9"]
+second image:  sha256:828c33f0a525f7af694b92d533c88426f340e9b1f9a482fed339a45b5ee25e8e
+second layers: ["sha256:003bc47db80e1db9682196e25aee85d3efef9d7f790c6125e7378b26e0502f68"]
+PASS: the JAR-only rootfs layer changed, proving the COPY layer was invalidated.
