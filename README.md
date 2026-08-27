@@ -8,8 +8,8 @@ when tested on 2026-08-27:
   SHA-256 hashes.
 - Their extracted files are byte-for-byte identical, but their ZIP timestamps
   differ.
-- The changed archive invalidates Docker layers and downstream GraalVM Native
-  Image builds (in the motivating Tenchou project, roughly 70 seconds instead
+- The changed archive **invalidates Docker layers and downstream GraalVM Native
+  Image builds** (in the motivating Tenchou project, roughly 70 seconds instead
   of 15 seconds for the deployment pipeline, or about 5× slower).
 
 See [REPORT.md](REPORT.md) for the full investigation, production impact,
