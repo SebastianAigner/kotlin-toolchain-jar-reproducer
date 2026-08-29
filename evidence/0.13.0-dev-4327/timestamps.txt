@@ -1,0 +1,18 @@
+archive: first.jar
+entries: 131
+entries with different timestamps: 131
+first timestamp	entry	second timestamp
+20260829.072650	META-INF/MANIFEST.MF	20260829.072712
+20260829.072650	BOOT-INF/classes/	20260829.072712
+20260829.072650	BOOT-INF/classes/META-INF/	20260829.072712
+20260829.072650	BOOT-INF/classes/META-INF/kotlin-toolchain-jar-reproducer.kotlin_module	20260829.072712
+20260829.072650	BOOT-INF/classes/MainKt.class	20260829.072712
+
+archive: first.jar!/BOOT-INF/lib/kotlin-toolchain-jar-reproducer-jvm.jar
+entries: 4
+entries with different timestamps: 4
+first timestamp	entry	second timestamp
+20260829.072650	META-INF/MANIFEST.MF	20260829.072712
+20260829.072650	META-INF/	20260829.072712
+20260829.072650	META-INF/kotlin-toolchain-jar-reproducer.kotlin_module	20260829.072712
+20260829.072650	MainKt.class	20260829.072712

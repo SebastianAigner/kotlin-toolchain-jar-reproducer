@@ -1,0 +1,5 @@
+first image:  sha256:6f7849ce61d086884cee6553502b17aac1ce4ab4d013c56e7ac89fd6a8b7334e
+first layers: ["sha256:e3e6f7e4a68c8ef5ac5b94a153616c852b69aa2d5ac4909727ff25eb1c81b336"]
+second image:  sha256:36cd3de0a8ceecff8e76033117d132cf499cf5a4fd080975bd412e3bf3aed98f
+second layers: ["sha256:0b39ae927cbe8e774789f7190433d0efc87729a69ef74ac9c64de4005e6a36ea"]
+PASS: the JAR-only rootfs layer changed, proving the COPY layer was invalidated by the forced clean rebuild.

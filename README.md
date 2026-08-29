@@ -1,66 +1,62 @@
-# Kotlin Toolchain executable-JAR reproducibility reproducer
+# Kotlin Toolchain executable-JAR clean-rebuild reproducer
 
-This repository provides `reproduce.sh`, a one-command reproducer for a Kotlin
-Toolchain 0.12.0 packaging issue. Version 0.12.0 was the latest official release
-when tested on 2026-08-27:
+This repository documents the behavior of Kotlin Toolchain
+`0.13.0-dev-4327` for executable JAR packaging:
 
-- Two unchanged `package` invocations produce executable JARs with different
-  SHA-256 hashes.
-- Their extracted files are byte-for-byte identical, but their ZIP timestamps
-  differ.
-- The changed archive **invalidates Docker layers and downstream GraalVM Native
-  Image builds** (in the motivating Tenchou project, roughly 70 seconds instead
-  of 15 seconds for the deployment pipeline, or about 5× slower).
+- An unchanged second `package` invocation is incremental and preserves the
+  existing executable JAR byte-for-byte.
+- Two forced clean rebuilds from identical inputs regenerate the executable JAR
+  with different ZIP timestamps and SHA-256 hashes.
+- Recursively extracting the outer executable JAR and its changed nested
+  application JAR produces byte-identical leaf payloads. Their non-timestamp
+  ZIP listing metadata also matches.
+- A Docker `COPY` layer changes when it consumes the two forced-rebuild JARs.
 
-See [REPORT.md](REPORT.md) for the full investigation, production impact,
-captured measurements, root-cause hypothesis, and practical workarounds.
+This is an important improvement over 0.12.0. The dev build fixes the observed
+production symptom through executable-JAR task incrementality: an ordinary
+unchanged second `package` no longer rewrites the JAR and therefore does not
+invalidate content-addressed consumers. The underlying clean-build output is
+still not reproducible.
 
-## Expected behavior
+See [REPORT.md](REPORT.md) for the full result, production interpretation, and
+historical context.
 
-With identical source, configuration, dependencies, toolchain, and environment,
-two package invocations should produce byte-identical executable JARs with the
-same SHA-256 hash. The second Docker build should then reuse the `COPY` layer
-that contains the JAR.
+## Expected and actual behavior
 
-## Actual behavior
+The incremental behavior now matches expectations: when no packaging input has
+changed, Kotlin Toolchain reuses the existing executable JAR and its SHA-256
+hash remains stable.
 
-Kotlin Toolchain 0.12.0 writes the packaging invocation time into the ZIP
-metadata. A second executable JAR therefore has a different SHA-256 hash even
-though every extracted file is byte-identical. Docker sees different `COPY`
-input, creates a different filesystem-layer diff ID, and invalidates that layer
-and every downstream layer.
+Ideally, genuinely executed clean builds from identical source, configuration,
+dependencies, toolchain, and environment would also produce byte-identical
+artifacts. In `0.13.0-dev-4327`, each clean rebuild writes its execution time to
+the ZIP entries. The outer archive also contains the freshly rebuilt
+application JAR, whose own entries have the same timestamp-only behavior.
 
-## Impact
+Consequently, clean-rebuild JAR hashes differ even though recursively extracted
+leaf files are byte-identical. Docker sees different `COPY` input and creates a
+different filesystem-layer diff ID.
 
-- **Docker** cannot reuse the `COPY` layer containing the executable JAR or any
-  downstream layer, despite the application payload being unchanged.
-- **GraalVM Native Image** pipelines rebuild the native executable whenever that
-  invalidated layer feeds the native compiler. In Tenchou, native compilation
-  takes roughly 57 seconds, while the correctly cached **Docker** build takes
-  about 2 seconds.
-- **CI build caches**, artifact stores, provenance records, and deployment
-  systems that identify artifacts by digest see a new artifact on every
-  packaging run.
-- **Container registries** and deployment hosts may transfer and unpack layers
-  that contain no meaningful application change.
+## Production interpretation
 
-This reproducer intentionally does **not** run **GraalVM Native Image**. Its
-`FROM scratch` image contains only the executable JAR, isolating and proving
-the **Docker** cache invalidation quickly and cheaply.
+For the motivating Tenchou pipeline, avoiding an unnecessary JAR rewrite also
+avoids invalidating a downstream GraalVM Native Image layer. That was the
+production problem: the complete deployment took roughly 70 seconds instead
+of 15 seconds, or about five times longer, when an unchanged backend artifact
+was regenerated.
 
-## Workarounds
+With `0.13.0-dev-4327`, an ordinary unchanged incremental `package` preserves
+the JAR, so that specific production symptom is fixed. A deliberately forced
+clean rebuild still changes the artifact digest and therefore invalidates a
+Docker layer or any other digest-keyed consumer. This reproducer uses a tiny
+`FROM scratch` image to demonstrate that remaining behavior without running
+GraalVM Native Image.
 
-The practical short-term options are to skip `package` when a complete content
-fingerprint of backend inputs is unchanged, keep frequently changed static
-frontend assets outside the executable, or deterministically normalize the JAR
-after packaging while preserving the executable layout's stored nested JARs.
-The full tradeoffs and a verified normalization experiment are documented in
-[REPORT.md](REPORT.md#practical-workarounds).
-
-## One-command reproduction
+## One-command demonstration
 
 Prerequisites are Bash, Docker, `unzip`/`zipinfo`, and standard Unix tools. The
-Docker daemon must be running. From this directory, run:
+Docker daemon must be running. The script supports the same macOS/Linux
+environments as before. From this directory, run:
 
 ```console
 ./reproduce.sh
@@ -68,25 +64,30 @@ Docker daemon must be running. From this directory, run:
 
 The script:
 
-1. cleans and packages an executable JAR;
-2. builds a lightweight Docker image containing only that JAR;
-3. waits three seconds (greater than ZIP's two-second timestamp resolution);
-4. packages again without changing any input and builds the second image;
-5. asserts that JAR hashes differ;
-6. extracts both JARs and asserts that their payloads are byte-identical;
-7. counts corresponding ZIP entries whose timestamps changed; and
-8. asserts that the Docker image ID and sole rootfs-layer diff ID changed.
+1. runs `clean`, packages the first executable JAR, and builds a Docker image;
+2. packages again without changing inputs or cleaning, and asserts that the
+   JAR hash is unchanged;
+3. waits three seconds, exceeding ZIP's two-second timestamp resolution;
+4. runs `clean` again, packages the second executable JAR, and builds another
+   Docker image;
+5. asserts that the two clean-rebuild JAR hashes differ;
+6. recursively extracts changed nested ZIP/JAR entries and asserts that all
+   leaf payload files are byte-identical;
+7. asserts that corresponding archive entry trees and non-timestamp ZIP
+   listing metadata match, while explicitly counting changed timestamps; and
+8. asserts that the forced-rebuild Docker image and rootfs-layer IDs differ.
 
-It exits nonzero with a clear `FAIL` message if the issue no longer reproduces
-or if the observed difference is not timestamp-only. A successful reproduction
-ends with `PASS` and writes concise evidence to `evidence/latest/`.
+It exits nonzero if the incremental invocation rewrites the JAR, if the clean
+rebuilds unexpectedly become byte-for-byte identical, or if any observed
+difference cannot be accounted for by ZIP timestamps. A successful run writes
+concise evidence and full logs to the ignored `evidence/latest/` directory.
 
 ## Captured evidence
 
-The checked-in `evidence/0.12.0/` directory contains JAR hashes, a timestamp
-summary, the extracted-payload comparison, Docker image/layer IDs, environment
-details, and official wrapper hashes. Raw build logs from a new run are placed
-in the ignored `evidence/latest/` directory.
+The checked-in `evidence/0.13.0-dev-4327/` directory contains concise output
+from the current validation. `evidence/0.12.0/` is retained as historical
+evidence for the old non-incremental behavior. See
+[evidence/README.md](evidence/README.md).
 
 ## Cleanup
 
@@ -102,25 +103,23 @@ docker image rm kotlin-toolchain-jar-reproducer:first \
 Docker may retain untagged cache data; manage that according to the normal
 cache policy of the test machine.
 
-## Environment
+## Environment and wrapper pin
 
-- Kotlin Toolchain 0.12.0 (`2039c53`, 2026-08-25), pinned by the checked-in
-  `kotlin` and `kotlin.bat` wrappers
+- Kotlin Toolchain `0.13.0-dev-4327` (`c8b4c97`, 2026-08-29)
+- Official Unix wrapper SHA-256:
+  `8b07cca4f46d86911b1f16d5c1d43f951b062eeba1fad66efb7f3f37a5604bcc`
+- Official Windows wrapper SHA-256:
+  `1b06daaf84a475315fbd221926e7f0c0c308a1a966a9cea080ed0c6ef0706ab2`
 - Product: `jvm/app`
 - Kotlin: 2.4.10, pinned in `module.yaml`
 - JDK: 25, pinned in `module.yaml`
-- Docker with BuildKit enabled
 
-0.12.0 was selected from JetBrains' official release feed as the newest stable
-release available on 2026-08-27. The wrappers were downloaded by the official
-`./kotlin update` command and match the published
-[Unix wrapper](https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/kotlin/kotlin-cli/0.12.0/kotlin-cli-0.12.0-wrapper)
-and [Windows wrapper](https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/kotlin/kotlin-cli/0.12.0/kotlin-cli-0.12.0-wrapper.bat)
-byte-for-byte. See the
-[0.12.0 release](https://github.com/JetBrains/kotlin-toolchain/releases/tag/v0.12.0)
-for JetBrains' release notes.
+Both checked-in wrappers were updated with the official command:
 
-The application is a single three-line `main` function. It has no third-party
-application dependencies. Kotlin Toolchain's `executable-jar` packaging uses a
-Spring Boot-style loader layout (`BOOT-INF` and `org/springframework/boot/loader`),
-which is the artifact under test.
+```console
+./kotlin update --target-version=0.13.0-dev-4327
+```
+
+The updater supplied the distribution checksum embedded in both wrappers and
+preserved their executable file modes. The application remains a single
+three-line `main` function with no third-party application dependencies.
