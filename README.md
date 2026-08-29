@@ -12,6 +12,13 @@ This repository documents the behavior of Kotlin Toolchain
   ZIP listing metadata also matches.**
 - **A Docker `COPY` layer changes when it consumes the two forced-rebuild JARs.**
 
+Observations:
+
+- The outer executable JAR differs between the two clean rebuilds.
+- Its nested application JAR also differs as a binary file.
+- After extracting the nested JAR, its classes and metadata files are
+  byte-identical; only the ZIP timestamps differ.
+
 This is an important improvement over 0.12.0. The dev build fixes the observed
 production symptom through executable-JAR task incrementality: an ordinary
 unchanged second `package` no longer rewrites the JAR and therefore does not
