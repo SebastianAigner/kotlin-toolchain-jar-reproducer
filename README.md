@@ -5,12 +5,12 @@ This repository documents the behavior of Kotlin Toolchain
 
 - An unchanged second `package` invocation is incremental and preserves the
   existing executable JAR byte-for-byte.
-- Two forced clean rebuilds from identical inputs regenerate the executable JAR
-  with different ZIP timestamps and SHA-256 hashes.
-- Recursively extracting the outer executable JAR and its changed nested
+- **Two forced clean rebuilds from identical inputs regenerate the executable JAR
+  with different ZIP timestamps and SHA-256 hashes.**
+- **Recursively extracting the outer executable JAR and its changed nested
   application JAR produces byte-identical leaf payloads. Their non-timestamp
-  ZIP listing metadata also matches.
-- A Docker `COPY` layer changes when it consumes the two forced-rebuild JARs.
+  ZIP listing metadata also matches.**
+- **A Docker `COPY` layer changes when it consumes the two forced-rebuild JARs.**
 
 This is an important improvement over 0.12.0. The dev build fixes the observed
 production symptom through executable-JAR task incrementality: an ordinary
