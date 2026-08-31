@@ -1,0 +1,5 @@
+08c768b472991e63a5c34f9d47cea506112ec18244e0ed0b0a5cd389b576fbab  kotlin
+f03e3047c886f04115cd3c4411487d62cf8efa5043d8251047ad70b011156f9b  kotlin.bat
+2337ca2cd939960cd0bfd696800536a201be5904cc80c1d0f4b4b31b2a65ea28  module.yaml
+b88737f8a540947423a7423a40424d3209b1b567cc44813eab9636ecbcd7e27b  src/main.kt
+PASS: manifests before both clean rebuilds were identical.

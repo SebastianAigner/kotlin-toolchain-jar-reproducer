@@ -1,0 +1,7 @@
+Kotlin Toolchain version 0.13.0-dev-4333 (3d00bdf, 2026-08-30)
+Unix wrapper SHA-256: 08c768b472991e63a5c34f9d47cea506112ec18244e0ed0b0a5cd389b576fbab
+Windows wrapper SHA-256: f03e3047c886f04115cd3c4411487d62cf8efa5043d8251047ad70b011156f9b
+Configured compiler: Kotlin 2.4.10
+Configured JDK: JDK 25
+Docker client 29.7.2, server 29.7.2
+Darwin DE-UNIT-1151 25.6.0 Darwin Kernel Version 25.6.0: Fri Jul 31 19:18:48 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6020 x86_64

@@ -1,0 +1,5 @@
+first image:  sha256:2c3aa5e2f7ee254bd633c8bc3f431177c7c81f3a5345d511df2d34b023aaa2a5
+first layers: ["sha256:ef933e9d614bb93e2bbf96ae125c01fdca54131a51b9767cbcce85fa28e46f80"]
+second image:  sha256:2c3aa5e2f7ee254bd633c8bc3f431177c7c81f3a5345d511df2d34b023aaa2a5
+second layers: ["sha256:ef933e9d614bb93e2bbf96ae125c01fdca54131a51b9767cbcce85fa28e46f80"]
+PASS: identical clean-rebuild JARs reused the Docker image and JAR-only rootfs layer.

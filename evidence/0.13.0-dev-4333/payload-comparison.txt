@@ -1,0 +1,5 @@
+PASS: recursively extracted payload files are byte-identical.
+Compared 4 corresponding ZIP archives.
+Compared 1147 corresponding non-archive leaf files.
+PASS: all corresponding archives are byte-identical.
+PASS: corresponding entry trees and non-timestamp ZIP listing metadata match.

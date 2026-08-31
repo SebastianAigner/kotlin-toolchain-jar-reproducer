@@ -1,0 +1,53 @@
+archive: first.jar
+entries: 131
+entries with different timestamps: 0
+first timestamp	entry	second timestamp
+19700101.090000	META-INF/MANIFEST.MF	19700101.090000
+19700101.090000	BOOT-INF/classes/	19700101.090000
+19700101.090000	BOOT-INF/classes/META-INF/	19700101.090000
+19700101.090000	BOOT-INF/classes/META-INF/kotlin-toolchain-jar-reproducer.kotlin_module	19700101.090000
+19700101.090000	BOOT-INF/classes/MainKt.class	19700101.090000
+19700101.090000	BOOT-INF/classpath.idx	19700101.090000
+19700101.090000	BOOT-INF/layers.idx	19700101.090000
+19700101.090000	BOOT-INF/lib/annotations-13.0.jar	19700101.090000
+19700101.090000	BOOT-INF/lib/kotlin-stdlib-2.4.10.jar	19700101.090000
+19700101.090000	BOOT-INF/lib/kotlin-toolchain-jar-reproducer-jvm.jar	19700101.090000
+
+archive: first.jar!/BOOT-INF/lib/annotations-13.0.jar
+entries: 45
+entries with different timestamps: 0
+first timestamp	entry	second timestamp
+20131217.161036	META-INF/	20131217.161036
+20131217.161034	META-INF/MANIFEST.MF	20131217.161034
+20131217.161034	org/	20131217.161034
+20131217.161034	org/intellij/	20131217.161034
+20131217.161034	org/intellij/lang/	20131217.161034
+20131217.161034	org/intellij/lang/annotations/	20131217.161034
+20131217.161034	org/jetbrains/	20131217.161034
+20131217.161034	org/jetbrains/annotations/	20131217.161034
+20131217.161034	org/intellij/lang/annotations/Flow.class	20131217.161034
+20131217.161034	org/intellij/lang/annotations/Identifier.class	20131217.161034
+
+archive: first.jar!/BOOT-INF/lib/kotlin-stdlib-2.4.10.jar
+entries: 1053
+entries with different timestamps: 0
+first timestamp	entry	second timestamp
+19800201.000000	META-INF/	19800201.000000
+19800201.000000	META-INF/MANIFEST.MF	19800201.000000
+19800201.000000	META-INF/kotlin-stdlib.kotlin_module	19800201.000000
+19800201.000000	kotlin/	19800201.000000
+19800201.000000	kotlin/ArrayIntrinsicsKt.class	19800201.000000
+19800201.000000	kotlin/BuilderInference.class	19800201.000000
+19800201.000000	kotlin/CharCodeJVMKt.class	19800201.000000
+19800201.000000	kotlin/CharCodeKt.class	19800201.000000
+19800201.000000	kotlin/CompareToKt.class	19800201.000000
+19800201.000000	kotlin/ConsistentCopyVisibility.class	19800201.000000
+
+archive: first.jar!/BOOT-INF/lib/kotlin-toolchain-jar-reproducer-jvm.jar
+entries: 4
+entries with different timestamps: 0
+first timestamp	entry	second timestamp
+19700101.090000	META-INF/MANIFEST.MF	19700101.090000
+19700101.090000	META-INF/	19700101.090000
+19700101.090000	META-INF/kotlin-toolchain-jar-reproducer.kotlin_module	19700101.090000
+19700101.090000	MainKt.class	19700101.090000

@@ -1,0 +1,3 @@
+first artifact mtime epoch:       1788171793
+incremental artifact mtime epoch: 1788171793
+PASS: unchanged package preserved the executable JAR file and hash.
